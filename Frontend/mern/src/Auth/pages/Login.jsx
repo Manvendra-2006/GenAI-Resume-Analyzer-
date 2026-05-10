@@ -15,7 +15,7 @@ const Login = () => {
 
     const [error, setError] = useState("")
 
-    function handleSubmit(e) {
+    async function handleSubmit(e) {
         e.preventDefault()
         setError("")
         
@@ -24,8 +24,10 @@ const Login = () => {
             return
         }
         
-        handleLogin(formData)
-        setTimeout(() => navigate("/"), 500)
+        const success = await handleLogin(formData)
+        if (success) {
+            navigate("/")
+        }
     }
 
     function handleChange(e) {

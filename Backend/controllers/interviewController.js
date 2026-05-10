@@ -28,7 +28,8 @@ export async function interviewController(req,resp){
     }
 
     catch(error){
-        return resp.status(500).json({message:"Internal Server Error",error})
+        console.error('interviewController error:', error)
+        return resp.status(500).json({message:"Internal Server Error", error: error.message || error})
     }
 }
 export async function getInterviewReport(req,resp){

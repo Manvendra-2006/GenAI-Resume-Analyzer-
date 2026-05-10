@@ -33,7 +33,7 @@ const SignUp = () => {
         }
     }
 
-    function handleSubmit(e) {
+    async function handleSubmit(e) {
         e.preventDefault()
         setError("")
 
@@ -47,8 +47,10 @@ const SignUp = () => {
             return
         }
 
-        handleRegister(formData)
-        setTimeout(() => navigate("/login"), 500)
+        const success = await handleRegister(formData)
+        if (success) {
+            navigate("/login")
+        }
     }
 
     if (loading) {

@@ -109,14 +109,17 @@ Return the response in JSON format matching this structure:
 ${JSON.stringify(zodToJsonSchema(interviewReportZodSchema))} 
 `;
   // isme zod to Schema fir read krne ke liye JSON.stringify karke prompt me dalenge taki model ko pata chale ki hume kasia data chahiye aur uske according hi response de . Aur response ko parse krke use krenge
-  const response = await groq.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
+  const response = await groq.chat.completions.create({ // ye grok ka sdk api call hain 
+    model: "llama-3.3-70b-versatile", // grok ke server par hosted llama model 
     messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" }
   });
-  const data = JSON.parse(response.choices[0].message.content);
-  const stringData = JSON.stringify(data, null, 2);
-  console.log(data)
+  const content = response.choices?.[0]?.message?.content;
+  const data = typeof content === "string" ? JSON.parse(content) : content;
+  if (!data || typeof data !== "object") {
+    throw new Error("Invalid AI response format: expected JSON object")
+  }
+  console.log('AI interview report data:', data)
   return data
 
 }

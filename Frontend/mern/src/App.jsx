@@ -1,5 +1,7 @@
 import React from 'react'
-import { BrowserRouter,Routes,Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 import Login from './Auth/pages/Login'
 import SignUp from './Auth/pages/SignUp'
 import Protected from './Auth/components/Protected'
@@ -9,17 +11,30 @@ import AllReports from './interview/pages/AllReports'
 
 const App = () => {
   return (
-    <div>      
+    <>
       <BrowserRouter>
-      <Routes>
-        <Route element={<Protected><Home/></Protected> }path="/"/>
-        <Route element={<Login/>} path='/login'/>
-        <Route element={<SignUp/>} path='/signup'/>
-        <Route element={<Protected><Interview/></Protected>} path="/interview/:interview"/>
-        <Route element={<Protected><AllReports/></Protected>} path="/reports"/>
-      </Routes>
+        <Routes>
+          <Route element={<Protected><Home/></Protected>} path="/" />
+          <Route element={<Login/>} path='/login' />
+          <Route element={<SignUp/>} path='/signup' />
+          <Route element={<Protected><Interview/></Protected>} path="/interview/:interview" />
+          <Route element={<Protected><AllReports/></Protected>} path="/reports" />
+        </Routes>
       </BrowserRouter>
-    </div>
+
+      <ToastContainer
+        position="top-right"
+        autoClose={3500}
+        hideProgressBar={false}
+        newestOnTop={true}
+        closeOnClick
+        pauseOnHover
+        draggable
+        theme="dark"
+        toastClassName="custom-toast"
+        bodyClassName="custom-toast-body"
+      />
+    </>
   )
 }
 

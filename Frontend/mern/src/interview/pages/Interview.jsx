@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react'
+import { toast } from 'react-toastify'
 import '../style/interview.css'
 import useInterview from '../hooks/useInterview'
 import { useParams } from 'react-router-dom'
@@ -55,8 +56,10 @@ const Interview = () => {
     try {
       await getResume(interview)
       setDownloadMessage('Your AI Resume PDF download should start shortly.')
+      toast.success('Resume PDF is ready and downloading.', { theme: 'dark' })
     } catch (error) {
       setDownloadMessage('Unable to download the PDF. Please try again.')
+      toast.error('Failed to download resume PDF. Please try again.', { theme: 'dark' })
     } finally {
       setTimeout(() => {
         setDownloadLoading(false)

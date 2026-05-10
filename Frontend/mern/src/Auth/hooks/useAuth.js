@@ -1,51 +1,70 @@
 import React, { useContext } from 'react'
+import { toast } from 'react-toastify'
 import { AuthContext } from '../services/auth.context'
 import { login, logout, register } from '../services/auth.api'
 
 export const useAuth = () => {
     const context = useContext(AuthContext)
     const { User, setUser, loading, setloading } = context
+
+    function extractErrorMessage(error) {
+        return error?.response?.data?.message || error?.message || 'Something went wrong. Please try again.'
+    }
+
     async function handleLogin({ email, password }) {
         setloading(true)
         try {
             const data = await login({ email, password })
+            if (!data?.user) {
+                throw new Error('Unable to log in. Please check your credentials.')
+            }
             setUser(data.user)
+            toast.success('Welcome back! You are signed in.', { theme: 'dark' })
+            return true
         }
         catch (error) {
-            console.log(error)
+            toast.error(extractErrorMessage(error), { theme: 'dark' })
+            return false
         } finally {
             setloading(false)
         }
     }
+
     async function handleRegister({ name, email, password }) {
         setloading(true)
         try {
             const data = await register({ name, email, password })
+            if (!data?.user) {
+                throw new Error('Unable to create account. Please try again.')
+            }
             setUser(data.user)
+            toast.success('Account created successfully! Redirecting to login…', { theme: 'dark' })
+            return true
         }
         catch (error) {
-            console.log(error)
+            toast.error(extractErrorMessage(error), { theme: 'dark' })
+            return false
         }
         finally {
             setloading(false)
         }
-
-
     }
+
     async function handleLogOut() {
         setloading(true)
         try {
-            const data = await logout()
+            await logout()
             setUser(null)
+            toast.info('You have been signed out.', { theme: 'dark' })
         }
         catch (error) {
-            console.log(error)
+            toast.error(extractErrorMessage(error), { theme: 'dark' })
         }
         finally {
             setloading(false)
         }
-
     }
+
     return { User, loading, handleRegister, handleLogOut, handleLogin }
 }
 

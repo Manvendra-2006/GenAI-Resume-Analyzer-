@@ -25,11 +25,20 @@ const Home = () => {
 
   async function handleGenerateReport() {
     const resume = resumeInputRef.current.files[0]
-    const data = await generateReport({ jobDescription, selfDescription, resume })
-    console.log(data)
-    navigate(`/interview/${data._id}`)   
+    if (!resume) {
+      alert("Please upload a resume PDF before generating the report.")
+      return
+    }
+
+    const interviewReport = await generateReport({ jobDescription, selfDescription, resume })
+    console.log(interviewReport)
+    if (!interviewReport?._id) {
+      return
+    }
+    navigate(`/interview/${interviewReport._id}`)
   }
-  if(loading){
+
+  if (loading) {
     return <Loading message="Generating your personalized interview report..." />
   }
   return (
