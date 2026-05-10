@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "  nodemon Backend/server.js",
-    "build":"npm install && npm install --prefix Frontend/mern && npm run build --prefix Frontend/mern ",
+    "build": "npm install && npm install --prefix Frontend/mern && npm run build --prefix Frontend/mern ",
     "start": "nodemon Backend/server.js"
   },
   "keywords": [],
@@ -24,6 +24,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.4.1",
     "multer": "^2.1.1",
+    "nodemailer": "^8.0.7",
     "nodemon": "^3.1.14",
     "pdf-parse": "^2.4.5",
     "puppeteer": "^24.41.0",

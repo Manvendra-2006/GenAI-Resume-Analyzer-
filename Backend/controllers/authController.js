@@ -2,6 +2,7 @@ import User from "../models/User.js"
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import blacklistModel from "../models/blacklist.model.js"
+import { sendRegistrationEmail } from "../services/email.service.js"
 export async function SignUp(req,resp){
     try{
         const {name,email,password} = req.body
@@ -21,6 +22,7 @@ export async function SignUp(req,resp){
             email,
             password:hashpassword
         })
+        await sendRegistrationEmail(email,name)
         return resp.status(201).json({message:"User is created",newUser})
     }
     catch(error){
