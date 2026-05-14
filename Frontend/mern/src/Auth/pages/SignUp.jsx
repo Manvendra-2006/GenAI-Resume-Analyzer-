@@ -3,11 +3,13 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import AuthLoading from '../components/AuthLoading'
 import '../style/auth.css'
+import { useFirebase } from '../../Firebase/FirebaseProvider'
+import { toast } from 'react-toastify'
 
 const SignUp = () => {
     const navigate = useNavigate()
-    const { loading, handleRegister } = useAuth()
-    
+    const { loading, handleRegister,handleGoogleLogin } = useAuth()
+    const firebase = useFirebase()
     const [formData, setformData] = useState({
         name: "",
         email: "",
@@ -32,7 +34,27 @@ const SignUp = () => {
             setPasswordStrength(strength)
         }
     }
+ const signupwithgoogle = async () => {
+    try {
+        const result = await firebase.signupwithgoogle()
 
+        const user = result.user
+
+        await handleGoogleLogin({
+            uid: user.uid,
+            name: user.displayName,
+            email: user.email,
+            photoURL: user.photoURL
+        })
+
+        // toast.success("Google login successful")
+        navigate("/")
+    }
+    catch (error) {
+        console.log("Error occured", error)
+        toast.error("Google login failed")
+    }
+}
     async function handleSubmit(e) {
         e.preventDefault()
         setError("")
@@ -160,6 +182,47 @@ const SignUp = () => {
                     <button type='submit' className='submit-btn' disabled={loading}>
                         {loading ? 'Creating Account...' : 'Sign Up'}
                     </button>
+                   <button
+  type="button"
+  onClick={signupwithgoogle}
+  style={{
+    width: "100%",
+    padding: "14px 18px",
+    borderRadius: "14px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.05)",
+    color: "#ffffff",
+    fontSize: "0.95rem",
+    fontWeight: "600",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "12px",
+    marginTop: "12px",
+    transition: "all 0.3s ease",
+    backdropFilter: "blur(10px)"
+  }}
+  onMouseEnter={(e) => {
+    e.target.style.background = "rgba(255,255,255,0.1)"
+    e.target.style.transform = "translateY(-2px)"
+  }}
+  onMouseLeave={(e) => {
+    e.target.style.background = "rgba(255,255,255,0.05)"
+    e.target.style.transform = "translateY(0)"
+  }}
+>
+  <img
+    src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+    alt="google"
+    style={{
+      width: "20px",
+      height: "20px"
+    }}
+  />
+
+  Continue with Google
+</button>
                 </form>
 
                 <div className="auth-link-group">

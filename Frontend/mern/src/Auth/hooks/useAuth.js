@@ -1,7 +1,7 @@
 import React, { useContext } from 'react'
 import { toast } from 'react-toastify'
 import { AuthContext } from '../services/auth.context'
-import { login, logout, register } from '../services/auth.api'
+import { login, logout, register,googleLogin } from '../services/auth.api'
 
 export const useAuth = () => {
     const context = useContext(AuthContext)
@@ -10,7 +10,27 @@ export const useAuth = () => {
     function extractErrorMessage(error) {
         return error?.response?.data?.message || error?.message || 'Something went wrong. Please try again.'
     }
-
+   const clearAppStorage = () => {
+        // Clear all app-related localStorage to avoid showing old user's data
+        try {
+            // Clear localStorage
+            window.localStorage.removeItem('ai-debugger-state')
+            window.localStorage.removeItem('debug-context')
+            window.localStorage.removeItem('auth-token')
+            
+            // Clear sessionStorage
+            window.sessionStorage.clear()
+            
+            // Reset debug context state
+            if (resetDebugState) {
+                resetDebugState()
+            }
+            
+            console.log('✅ App storage cleared successfully')
+        } catch (err) {
+            console.error('Error clearing storage:', err)
+        }
+    }
     async function handleLogin({ email, password }) {
         setloading(true)
         try {
@@ -64,7 +84,30 @@ export const useAuth = () => {
             setloading(false)
         }
     }
+        async function handleGoogleLogin({ uid, name, email, photoURL }) {
+    setloading(true)
+    try {
+        clearAppStorage()
 
-    return { User, loading, handleRegister, handleLogOut, handleLogin }
+        const data = await googleLogin({
+            uid,
+            name,
+            email,
+            photoURL
+        })
+
+        setUser(data.userExists)
+        console.log(data.userExists)
+    }
+    catch (error) {
+        console.log(error)
+    }
+    finally {
+        setloading(false)
+    }
+}
+
+
+    return { User, loading, handleRegister, handleLogOut, handleLogin , handleGoogleLogin }
 }
 

@@ -4,12 +4,16 @@ import App from './App.jsx'
 import './style.scss'
 import { AuthProvider } from './Auth/services/auth.context'
 import InterviewProvider from './interview/interview.context.jsx'
+import FirebaseProvider from './Firebase/FirebaseProvider.jsx'
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <AuthProvider>
+    <FirebaseProvider>
+<AuthProvider>
       <InterviewProvider>
         <App />
       </InterviewProvider>
     </AuthProvider>
+    </FirebaseProvider>
+    
   </StrictMode>,
 )

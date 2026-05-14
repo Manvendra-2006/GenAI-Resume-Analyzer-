@@ -3,11 +3,13 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import AuthLoading from '../components/AuthLoading'
 import '../style/auth.css'
+import { toast } from 'react-toastify'
+import { useFirebase } from '../../Firebase/FirebaseProvider'
 
 const Login = () => {
     const navigate = useNavigate()
-    const { User, loading, handleLogin } = useAuth()
-
+    const { User, loading, handleLogin,handleGoogleLogin } = useAuth()
+    const firebase = useFirebase()
     const [formData, setformData] = useState({
         email: "",
         password: ""
@@ -30,6 +32,27 @@ const Login = () => {
         }
     }
 
+    const signupwithgoogle = async () => {
+        try {
+            const result = await firebase.signupwithgoogle()
+    
+            const user = result.user
+    
+            await handleGoogleLogin({
+                uid: user.uid,
+                name: user.displayName,
+                email: user.email,
+                photoURL: user.photoURL
+            })
+    
+            // toast.success("Google login successful")
+            navigate("/")
+        }
+        catch (error) {
+            console.log("Error occured", error)
+            toast.error("Google login failed")
+        }
+    }
     function handleChange(e) {
         const { value, name } = e.target
         setformData((prev) => ({ ...prev, [name]: value }))
@@ -93,6 +116,47 @@ const Login = () => {
                     <button type='submit' className='submit-btn' disabled={loading}>
                         {loading ? 'Signing in...' : 'Sign In'}
                     </button>
+                 <button
+  type="button"
+  onClick={signupwithgoogle}
+  style={{
+    width: "100%",
+    padding: "14px 18px",
+    borderRadius: "14px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.05)",
+    color: "#ffffff",
+    fontSize: "0.95rem",
+    fontWeight: "600",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "12px",
+    marginTop: "12px",
+    transition: "all 0.3s ease",
+    backdropFilter: "blur(10px)"
+  }}
+  onMouseEnter={(e) => {
+    e.target.style.background = "rgba(255,255,255,0.1)"
+    e.target.style.transform = "translateY(-2px)"
+  }}
+  onMouseLeave={(e) => {
+    e.target.style.background = "rgba(255,255,255,0.05)"
+    e.target.style.transform = "translateY(0)"
+  }}
+>
+  <img
+    src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+    alt="google"
+    style={{
+      width: "20px",
+      height: "20px"
+    }}
+  />
+
+  Continue with Google
+</button>
                 </form>
 
                 <div className="auth-link-group">
