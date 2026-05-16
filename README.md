@@ -6,7 +6,7 @@
 
 ## 📌 What This App Does
 
-1. User registers and logs in securely
+1. User registers and logs in securely (Email/Password or **Google via Firebase**)
 2. On login — JWT is generated and set as an **httpOnly cookie**
 3. User uploads **Resume PDF** + fills **Self Description** + **Job Description**
 4. Backend extracts text from PDF (`pdf-parse`), validates input (`Zod`), sends data to **Grok AI**
@@ -29,13 +29,13 @@ root/
 │   ├── config/
 │   │   └── db.js                        # MongoDB connection setup
 │   ├── controllers/
-│   │   ├── authController.js            # Register, Login, Logout logic
+│   │   ├── authController.js            # Register, Login, Google Auth, Logout logic
 │   │   └── interviewController.js       # AI analysis & report generation
 │   ├── middlewares/
 │   │   ├── auth.middleware.js           # JWT verify + blacklist check
 │   │   └── file.middleware.js           # Multer PDF upload config
 │   ├── models/
-│   │   ├── User.js                      # User schema (name, email, password)
+│   │   ├── User.js                      # User schema (name, email, password, googleId)
 │   │   ├── blacklist.model.js           # Revoked JWT tokens
 │   │   └── interviewReport.model.js     # Saved AI analysis reports
 │   ├── routes/
@@ -57,11 +57,12 @@ root/
 │   │   │   ├── hooks/
 │   │   │   │   └── useAuth.js           # Custom hook — consumes AuthContext
 │   │   │   ├── pages/
-│   │   │   │   ├── Login.jsx
-│   │   │   │   └── SignUp.jsx
+│   │   │   │   ├── Login.jsx            # Email/password + Google Sign-In button
+│   │   │   │   └── SignUp.jsx           # Email/password + Google Sign-Up button
 │   │   │   ├── services/
 │   │   │   │   ├── auth.api.js          # Axios calls for auth endpoints
-│   │   │   │   └── auth.context.jsx     # Auth Context Provider (no localStorage)
+│   │   │   │   ├── auth.context.jsx     # Auth Context Provider (no localStorage)
+│   │   │   │   └── firebase.js          # Firebase app init + GoogleAuthProvider config
 │   │   │   └── style/
 │   │   │       └── auth.css             # Auth pages — Vanilla CSS
 │   │   │
@@ -107,6 +108,7 @@ root/
 | React Router DOM | Client-side routing |
 | Axios | HTTP requests with `withCredentials` |
 | Context API | Global state — Auth + Interview (no localStorage) |
+| Firebase Auth | Google OAuth 2.0 — `signInWithPopup` + `GoogleAuthProvider` |
 | Vanilla CSS + SCSS | Styling (no Tailwind, no CSS-in-JS) |
 
 ### 🖧 Backend
@@ -115,10 +117,11 @@ root/
 |---|---|
 | Node.js + Express | Server & REST API |
 | MongoDB + Mongoose | Database |
+| firebase-admin | Verify Firebase ID tokens server-side |
 | Multer | PDF file upload handling (max 3MB) |
 | pdf-parse | Extract raw text from uploaded resume PDF |
 | Puppeteer | Render AI-generated HTML resume → ATS PDF |
-| bcryptjs | Secure password hashing |
+| bcryptjs | Secure password hashing (email/password users) |
 | jsonwebtoken | JWT — generated at login, set as httpOnly cookie |
 | blacklist.model.js | Secure logout — revoke JWT on logout |
 | Zod | Request body & AI response schema validation |
@@ -128,6 +131,12 @@ root/
 ---
 
 ## 🔐 Authentication Flow
+
+This app supports **two login methods** — both result in the same httpOnly JWT cookie session.
+
+---
+
+### 1️⃣ Email / Password Auth
 
 ```
 REGISTER
@@ -155,30 +164,78 @@ bcryptjs.compare(plainPassword, hash) → match?
 jwt.sign({ userId }, JWT_SECRET, { expiresIn })
         │
         ▼
-JWT set as httpOnly cookie on the response → sent to client
+JWT set as httpOnly cookie → sent to client
         │
         ▼
-Auth state updated in auth.context.jsx (React Context)
+Auth state updated in auth.context.jsx
+```
 
+---
 
-PROTECTED REQUEST
-─────────────────
+### 2️⃣ Google Sign-In (Firebase)
+
+```
+User clicks "Sign in with Google"
+        │
+        ▼
+Firebase SDK → signInWithPopup(auth, new GoogleAuthProvider())
+        │
+        ▼
+Google OAuth popup → user selects Google account & consents
+        │
+        ▼
+Firebase returns → user.accessToken  (Firebase ID Token)
+        │
+        ▼
+Frontend sends token → POST /api/auth/google
+  { idToken: "Firebase ID token" }
+        │
+        ▼
+Backend → firebase-admin.auth().verifyIdToken(idToken)
+  → confirms token is genuine & not expired
+        │
+        ▼
+User.findOrCreate({ email }) in MongoDB
+  ├── Existing user → skip creation
+  └── New Google user → save { name, email, googleId } (no password field)
+        │
+        ▼
+jwt.sign({ userId }, JWT_SECRET, { expiresIn })
+        │
+        ▼
+JWT set as httpOnly cookie → same session flow as email/password
+        │
+        ▼
+Auth state updated in auth.context.jsx
+```
+
+---
+
+### 🔒 Protected Request (Both Auth Methods)
+
+```
 Client hits any protected route
         │
         ▼
 auth.middleware.js
-  ├── Extract token from httpOnly cookie
+  ├── Extract JWT from httpOnly cookie
   ├── jwt.verify(token, JWT_SECRET) → valid & not expired?
   ├── blacklist.model.findOne({ token }) → not revoked?
   └── req.user = decoded payload → call next()
+```
 
+---
 
-LOGOUT
-──────
+### 🚪 Logout (Both Auth Methods)
+
+```
 auth.middleware.js verifies token first
         │
         ▼
 Token saved to blacklist.model (MongoDB)
+        │
+        ▼
+Firebase: auth.signOut() called on client (clears Google session)
         │
         ▼
 httpOnly cookie cleared on client
@@ -187,7 +244,7 @@ httpOnly cookie cleared on client
 All future requests with this token → 401 Unauthorized
 ```
 
-> **Why Blacklist?** JWT is stateless — once issued it stays valid until expiry. Storing revoked tokens in `blacklist.model.js` gives true, server-enforced logout without needing sessions.
+> **Why Blacklist?** JWT is stateless — once issued it stays valid until expiry. Storing revoked tokens in `blacklist.model.js` gives true, server-enforced logout for **both** email and Google auth users.
 
 ---
 
@@ -242,7 +299,7 @@ Client (multipart/form-data)
 
 ## 📐 AI Response Schema
 
-The Grok AI response is structurally enforced using `Zod` + `zodToJsonSchema`. The exact shape returned:
+The Grok AI response is structurally enforced using `Zod` + `zodToJsonSchema`:
 
 ```json
 {
@@ -279,14 +336,6 @@ The Grok AI response is structurally enforced using `Zod` + `zodToJsonSchema`. T
         "Complete Docker official getting-started tutorial",
         "Containerize an existing Node.js project"
       ]
-    },
-    {
-      "day": 2,
-      "focus": "CI/CD Pipelines",
-      "tasks": [
-        "Set up a GitHub Actions workflow for a sample project",
-        "Read about deployment strategies: blue-green, canary"
-      ]
     }
   ]
 }
@@ -302,6 +351,7 @@ The Grok AI response is structurally enforced using `Zod` + `zodToJsonSchema`. T
 npm install express mongoose dotenv cors cookie-parser
 npm install bcryptjs
 npm install jsonwebtoken
+npm install firebase-admin
 npm install multer
 npm install pdf-parse
 npm install puppeteer
@@ -314,6 +364,7 @@ npm install zod zod-to-json-schema
 npm install axios
 npm install react-router-dom
 npm install sass
+npm install firebase
 ```
 
 ---
@@ -324,8 +375,9 @@ npm install sass
 
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
-| POST | `/register` | Register new user | ❌ |
+| POST | `/register` | Register new user (email/password) | ❌ |
 | POST | `/login` | Login — JWT set as httpOnly cookie | ❌ |
+| POST | `/google` | Verify Firebase ID token → issue JWT cookie | ❌ |
 | POST | `/logout` | Blacklist token, clear cookie | ✅ |
 | GET | `/me` | Get logged-in user info | ✅ |
 
@@ -336,6 +388,14 @@ npm install sass
 | POST | `/analyze` | Upload PDF + descriptions → AI analysis + ATS PDF | ✅ |
 | GET | `/reports` | Get all reports of logged-in user | ✅ |
 | GET | `/reports/:id` | Get single report by ID | ✅ |
+
+**POST `/api/auth/google` — Request** (`application/json`):
+
+```json
+{
+  "idToken": "Firebase ID token returned from signInWithPopup"
+}
+```
 
 **POST `/analyze` — Request** (`multipart/form-data`):
 
@@ -356,9 +416,7 @@ resumePDF         → file    (required, .pdf only, max 3MB)
     "matchScore": 78,
     "technicalQuestionSchema": [...],
     "behaviourQuestionSchema": [...],
-    "skillGapsSchema": [
-      { "skill": "Docker", "severity": "high" }
-    ],
+    "skillGapsSchema": [{ "skill": "Docker", "severity": "high" }],
     "preparationPlanSchema": [...]
   }
 }
@@ -390,13 +448,15 @@ limits     → fileSize: 3MB max
 | Practice | Implementation |
 |---|---|
 | Password hashing | `bcryptjs` — salt rounds: 10 |
-| Auth tokens | `jsonwebtoken` — generated at login, set as httpOnly cookie |
-| Secure logout | `blacklist.model.js` — token revocation stored in MongoDB |
+| Email/password tokens | `jsonwebtoken` — set as httpOnly cookie at login |
+| Google auth | Firebase `signInWithPopup` → ID token verified by `firebase-admin` on backend |
+| Unified session | Both auth methods issue the same httpOnly JWT cookie |
+| Secure logout | `blacklist.model.js` (MongoDB) + Firebase `auth.signOut()` on client |
 | Input validation | `Zod` on all request bodies |
 | AI output validation | `Zod` schema enforces structured Grok AI response |
 | File validation | Multer fileFilter — PDF only, max 3MB |
 | No localStorage | Auth state in React Context + httpOnly cookies only |
-| Secrets management | All keys in `.env`  |
+| Secrets management | All keys in `.env` |
 
 ---
 
@@ -406,6 +466,7 @@ limits     → fileSize: 3MB max
 - Node.js v18+
 - MongoDB (local or Atlas)
 - Grok AI API Key — [xAI Console](https://console.x.ai/)
+- Firebase Project — [Firebase Console](https://console.firebase.google.com/)
 
 ### 1. Clone
 
@@ -414,7 +475,14 @@ git clone https://github.com/Manvendra-2006/GENAI.git
 cd GENAI
 ```
 
-### 2. Backend Setup
+### 2. Firebase Setup
+
+1. Go to [Firebase Console](https://console.firebase.google.com/) → Create or select a project
+2. **Authentication** → Sign-in method → Enable **Google**
+3. **Project Settings → General** → Add a Web App → copy the Firebase config (for frontend `.env`)
+4. **Project Settings → Service Accounts** → Generate new private key → download JSON (for backend `.env`)
+
+### 3. Backend Setup
 
 ```bash
 cd Backend
@@ -430,41 +498,62 @@ JWT_SECRET=your_super_secret_jwt_key
 JWT_EXPIRES_IN=7d
 GROK_API_KEY=your_grok_xai_api_key_here
 NODE_ENV=development
+
+# Firebase Admin SDK (from downloaded service account JSON)
+FIREBASE_PROJECT_ID=your_project_id
+FIREBASE_CLIENT_EMAIL=your_client_email
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 ```
 
 ```bash
 npm run dev
 ```
 
-### 3. Frontend Setup
+### 4. Frontend Setup
 
 ```bash
 cd Frontend/mern
 npm install
+```
+
+Create `Frontend/mern/.env`:
+
+```env
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_APP_ID=your_app_id
+```
+
+```bash
 npm run dev
 ```
 
-| Service         | URL                    |
-|-----------------|------------------------|
-| App (Full)      | http://localhost:3000  |
+| Service | URL |
+|---------|-----|
+| App (Full) | http://localhost:3000 |
+
 ---
 
 ## 🧩 Key Concepts Explained
 
+### Firebase Google Auth + Backend JWT
+Firebase handles the Google OAuth popup on the frontend. Once the user signs in, Firebase returns an **ID token**. This token is sent to the backend where `firebase-admin` verifies it — confirming the user is genuinely authenticated by Google. The backend then issues its own **JWT as an httpOnly cookie**, keeping all subsequent requests uniform regardless of whether the user signed in via email or Google.
+
 ### JWT + httpOnly Cookie
-JWT is generated **only at login** and immediately set as an **httpOnly cookie** — inaccessible to JavaScript, protecting against XSS. The token is never stored in `localStorage` or `sessionStorage`.
+JWT is generated **only at login** (both methods) and set as an **httpOnly cookie** — inaccessible to JavaScript, protecting against XSS. Never stored in `localStorage` or `sessionStorage`.
 
 ### JWT + Blacklist Pattern
-JWT is stateless — once issued it remains valid until expiry. This project inserts every logged-out token into `blacklist.model.js` (MongoDB). `auth.middleware.js` checks this collection on every protected request, making logout truly server-enforced.
+JWT is stateless — once issued it remains valid until expiry. Every logged-out token is inserted into `blacklist.model.js` (MongoDB). `auth.middleware.js` checks this on every protected request, making logout truly server-enforced for both email and Google users.
 
 ### No localStorage — Context API Only
 Auth state lives in `auth.context.jsx` (React Context). No sensitive data ever touches browser storage APIs. State rehydrates on page load via a `/me` endpoint call secured by the httpOnly cookie.
 
 ### Zod + zodToJsonSchema
-Zod validates incoming request bodies on the backend. The same Zod schema is converted to **JSON Schema** via `zod-to-json-schema` and passed to Grok AI — forcing the AI to always return exactly the structure defined. No hallucinated keys, no missing fields.
+Zod validates incoming request bodies on the backend. The same schema is converted to **JSON Schema** via `zod-to-json-schema` and passed to Grok AI — forcing it to always return exactly the defined structure. No hallucinated keys, no missing fields.
 
 ### Puppeteer — HTML to ATS PDF
-Grok AI generates an ATS-optimized resume as an **HTML string**. Puppeteer launches a headless Chromium browser, renders this HTML, and exports a clean **PDF** — properly formatted to pass ATS parsers and human reviewers.
+Grok AI generates an ATS-optimized resume as an **HTML string**. Puppeteer launches a headless Chromium browser, renders it, and exports a clean **PDF** formatted to pass ATS parsers and human reviewers.
 
 ---
 
