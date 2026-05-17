@@ -555,13 +555,6 @@ Zod validates incoming request bodies on the backend. The same schema is convert
 ### Puppeteer — HTML to ATS PDF
 Grok AI generates an ATS-optimized resume as an **HTML string**. Puppeteer launches a headless Chromium browser, renders it, and exports a clean **PDF** formatted to pass ATS parsers and human reviewers.
 
----
-
-## 📄 License
-
-This project is licensed under the **MIT License**.
-
----
 
 ## 👨‍💻 Author
 
